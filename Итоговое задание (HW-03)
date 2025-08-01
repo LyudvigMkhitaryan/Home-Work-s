@@ -1,0 +1,85 @@
+Задача 2. Создание класса по работе с данными
+import os
+import psycopg2
+
+class DatabaseHandler:
+    def __init__(self):
+        self.conn = psycopg2.connect(
+            host=os.getenv('FSTR_DB_HOST'),
+            port=os.getenv('FSTR_DB_PORT'),
+            user=os.getenv('FSTR_DB_LOGIN'),
+            password=os.getenv('FSTR_DB_PASS'),
+            dbname=os.getenv('FSTR_DB_NAME')
+        )
+        self.conn.autocommit = True
+
+    def add_pass(self, name, height, region):
+        with self.conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO passes (name, height, region, status) VALUES (%s, %s, %s, %s)",
+                (name, height, region, 'new')
+            )
+
+    def close(self):
+        self.conn.close()
+
+Задача 3. Создание REST API c одним методом — POST submitData
+db_handler.py
+python
+Копировать код
+import os
+import psycopg2
+from psycopg2 import sql
+
+class DatabaseHandler:
+    def __init__(self):
+        self.conn = psycopg2.connect(
+            host=os.getenv('FSTR_DB_HOST'),
+            port=os.getenv('FSTR_DB_PORT'),
+            user=os.getenv('FSTR_DB_LOGIN'),
+            password=os.getenv('FSTR_DB_PASS'),
+            dbname=os.getenv('FSTR_DB_NAME')
+        )
+        self.conn.autocommit = True
+
+    def add_pass(self, pass_data: dict):
+        with self.conn.cursor() as cur:
+            columns = list(pass_data.keys()) + ['status']
+            values = list(pass_data.values()) + ['new']
+            query = sql.SQL(
+                "INSERT INTO passes ({fields}) VALUES ({placeholders})"
+            ).format(
+                fields=sql.SQL(', ').join(map(sql.Identifier, columns)),
+                placeholders=sql.SQL(', ').join(sql.Placeholder() * len(values))
+            )
+            cur.execute(query, values)
+
+    def close(self):
+        self.conn.close()
+
+main.py
+python
+Копировать код
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from db_handler import DatabaseHandler
+
+app = FastAPI()
+db = DatabaseHandler()
+
+class PassData(BaseModel):
+    name: str
+    height: int
+    region: str
+
+@app.post("/submitData")
+def submit_data(data: PassData):
+    try:
+        db.add_pass(data.dict())
+        return {"status": "success", "message": "Перевал успешно добавлен"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка сервера: {e}")
+
+@app.on_event("shutdown")
+def shutdown_event():
+    db.close()
