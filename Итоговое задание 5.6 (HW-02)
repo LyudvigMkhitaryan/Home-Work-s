@@ -1,0 +1,41 @@
+def print_board(b):
+    print("\n  1   2   3")
+    for i, row in enumerate(b, 1):
+        print(i, " | ".join(row))
+        if i < 3:
+            print("  " + "---+---+---")
+
+def check_winner(b):
+    lines = b + [list(col) for col in zip(*b)] + [[b[i][i] for i in range(3)]] + [[b[i][2-i] for i in range(3)]]
+    for line in lines:
+        if line == ["X"] * 3: return "X"
+        if line == ["O"] * 3: return "O"
+    if all(cell != " " for row in b for cell in row): return "Draw"
+    return None
+
+def get_move(p, b):
+    while True:
+        move = input(f"{p}, введите строку и столбец (через пробел): ").split()
+        if len(move) == 2 and all(m.isdigit() and 1 <= int(m) <= 3 for m in move):
+            r, c = int(move[0]) - 1, int(move[1]) - 1
+            if b[r][c] == " ": return r, c
+            else: print("Клетка занята!")
+        else:
+            print("Неверный ввод!")
+
+def main():
+    board = [[" "] * 3 for _ in range(3)]
+    player = "X"
+    while True:
+        print_board(board)
+        r, c = get_move(player, board)
+        board[r][c] = player
+        winner = check_winner(board)
+        if winner:
+            print_board(board)
+            print("Ничья!" if winner == "Draw" else f"Победил {winner}!")
+            break
+        player = "O" if player == "X" else "X"
+
+if __name__ == "__main__":
+    main()
